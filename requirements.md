@@ -1,86 +1,165 @@
 # Backend Requirement Specifications – Airbnb Clone
 
-This document outlines the technical and functional requirements for key backend features.
+This document details the functional and technical requirements for three core backend features:
+1. User Authentication
+2. Property Management
+3. Booking System
 
 ---
 
 ## 1. User Authentication
 
-### Functional Requirements
-- Users must be able to register with email, username, and password.
-- Users must be able to log in using valid credentials.
-- Passwords must be stored securely (hashed).
-- Sessions or JWT tokens must be used for authentication.
+### Summary
+Allow users to register and log in securely. Provide JWT-based authentication for protected endpoints.
 
 ### API Endpoints
-- `POST /api/v1/auth/register` – Register a new user.  
-  **Input:** `{ "username": "string", "email": "string", "password": "string" }`  
-  **Output:** `{ "id": "int", "username": "string", "email": "string", "token": "jwt" }`  
+- **POST** `/api/v1/auth/register`  
+  **Input JSON**
+  ```json
+  {
+    "username": "string",
+    "email": "string",
+    "password": "string"
+  }
+Success Response (201)
 
-- `POST /api/v1/auth/login` – Log in an existing user.  
-  **Input:** `{ "email": "string", "password": "string" }`  
-  **Output:** `{ "id": "int", "username": "string", "token": "jwt" }`  
+json
+Copy code
+{
+  "id": 123,
+  "username": "jane",
+  "email": "jane@example.com",
+  "token": "eyJhbGciOiJI..."
+}
+Errors: 400 (validation), 409 (email exists)
 
-### Validation Rules
-- Email must be unique and valid.
-- Password must be at least 8 characters.
-- Username required, 3–20 characters.
+POST /api/v1/auth/login
+Input JSON
 
-### Performance Criteria
-- Response time < 200ms for authentication requests.
-- Secure login and session handling.
+json
+Copy code
+{
+  "email": "string",
+  "password": "string"
+}
+Success Response (200)
 
----
+json
+Copy code
+{
+  "id": 123,
+  "username": "jane",
+  "email": "jane@example.com",
+  "token": "eyJhbGciOiJI..."
+}
+Errors: 400, 401 (invalid credentials)
 
-## 2. Property Management
+GET /api/v1/auth/me (protected)
+Header: Authorization: Bearer <token>
+Response (200): user profile JSON
 
-### Functional Requirements
-- Hosts can create, update, and delete property listings.
-- Properties must include details: title, description, location, price, availability.
-- Guests can search and filter properties.
+Validation Rules
+email: required, valid format, unique.
 
-### API Endpoints
-- `POST /api/v1/properties` – Create a new property.  
-- `GET /api/v1/properties` – Fetch all properties.  
-- `GET /api/v1/properties/{id}` – Fetch property details.  
-- `PUT /api/v1/properties/{id}` – Update property details.  
-- `DELETE /api/v1/properties/{id}` – Delete property.  
+password: required, minimum 8 characters.
 
-### Validation Rules
-- Title required (max 100 characters).
-- Price must be numeric and > 0.
-- Location required.
+username: required, 3–30 characters.
 
-### Performance Criteria
-- Property search must return results within 300ms.
-- Must handle at least 1000 property listings efficiently.
+Performance Criteria
+Response time < 200ms.
 
----
+Secure login and session handling.
 
-## 3. Booking System
+2. Property Management
+Summary
+Hosts can create, update, delete, and view properties. Guests can search and retrieve property details.
 
-### Functional Requirements
-- Guests can book available properties.
-- Booking should verify property availability.
-- Hosts must be able to view/manage their bookings.
+API Endpoints
+POST /api/v1/properties (protected - host)
 
-### API Endpoints
-- `POST /api/v1/bookings` – Create a booking.  
-  **Input:** `{ "property_id": "int", "user_id": "int", "start_date": "date", "end_date": "date" }`  
-  **Output:** `{ "id": "int", "status": "confirmed", "total_price": "float" }`  
+GET /api/v1/properties
 
-- `GET /api/v1/bookings/{id}` – Fetch booking details.  
-- `GET /api/v1/users/{id}/bookings` – Fetch all bookings for a user.  
+GET /api/v1/properties/{id}
 
-### Validation Rules
-- Dates must be valid and not overlap with existing bookings.
-- Property must exist and be available.
-- Only registered users can book.
+PUT /api/v1/properties/{id} (protected - host owner)
 
-### Performance Criteria
-- Booking confirmation within 500ms.
-- Support high concurrency during peak times.
+DELETE /api/v1/properties/{id} (protected - host owner)
 
----
+Sample Property JSON
+json
+Copy code
+{
+  "title": "Cozy 2BR flat",
+  "description": "Near the beach",
+  "location": "Lagos, Nigeria",
+  "price_per_night": 45.50,
+  "amenities": ["wifi", "kitchen"],
+  "availability": [
+    { "start_date": "2025-09-20", "end_date": "2025-10-01" }
+  ],
+  "images": ["https://..."]
+}
+Validation Rules
+Title: required, max 100 chars.
 
-# End of Document
+Price must be numeric and > 0.
+
+Location required.
+
+Availability dates valid and start_date ≤ end_date.
+
+Performance Criteria
+Search results < 300ms.
+
+Support ≥ 1000 property listings efficiently.
+
+3. Booking System
+Summary
+Guests can create bookings, verify availability, compute totals, and manage bookings.
+
+API Endpoints
+POST /api/v1/bookings (protected - user)
+Input JSON
+
+json
+Copy code
+{
+  "property_id": 456,
+  "user_id": 123,
+  "start_date": "2025-10-10",
+  "end_date": "2025-10-15",
+  "guests_count": 2,
+  "payment_method": "card"
+}
+Success Response (201)
+
+json
+Copy code
+{
+  "id": 789,
+  "property_id": 456,
+  "user_id": 123,
+  "start_date": "2025-10-10",
+  "end_date": "2025-10-15",
+  "total_price": 227.50,
+  "status": "pending_payment"
+}
+GET /api/v1/bookings/{id} — booking details
+
+GET /api/v1/users/{id}/bookings — list bookings for a user
+
+PUT /api/v1/bookings/{id}/cancel — cancel booking (rules apply)
+
+Validation Rules
+Booking dates must not overlap existing bookings.
+
+Property must exist and be available.
+
+Only registered users can book.
+
+guests_count ≤ property max guests.
+
+Performance Criteria
+Booking confirmation < 500ms.
+
+Handle high concurrency during peak times.
